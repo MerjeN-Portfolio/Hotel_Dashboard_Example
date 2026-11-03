@@ -22,8 +22,6 @@ An interactive hotel sales dashboard built as a single, self-contained HTML file
 | ADR (average daily rate) | Revenue / room nights sold |
 | RevPAR (revenue per available room) | Revenue / room nights available (equals occupancy x ADR) |
 
-When a channel filter is active, occupancy shows that channel's share of total room capacity.
-
 ## Data
 
 - 112 rooms: 60 Standard, 40 Superior, 12 Suite
