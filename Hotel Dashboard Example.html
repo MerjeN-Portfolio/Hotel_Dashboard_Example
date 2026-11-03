@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hotel Nordlys</title>
+<style>
+/* Layout: filter row on top, KPI strip, wide trend chart, then channel bars + room-type table, heatmap, month table.
+   System sans only; one blue accent; status colors only for deltas. */
+:root{
+  --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
+  --s1:#2a78d6; --s1-soft:#cde2fb; --up:#006300; --down:#c02f2f;
+  --h1:#cde2fb; --h2:#9ec5f4; --h3:#6da7ec; --h4:#3987e5; --h5:#256abf; --h6:#184f95; --h7:#0d366b;
+  --ht1:#0b0b0b; --ht2:#0b0b0b; --ht3:#0b0b0b; --ht4:#0b0b0b; --ht5:#ffffff; --ht6:#ffffff; --ht7:#ffffff;
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --page:#0d0d0d; --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+    --s1:#3987e5; --s1-soft:#184f95; --up:#0ca30c; --down:#e66767;
+    --h1:#0d366b; --h2:#184f95; --h3:#256abf; --h4:#3987e5; --h5:#6da7ec; --h6:#9ec5f4; --h7:#cde2fb;
+    --ht1:#ffffff; --ht2:#ffffff; --ht3:#ffffff; --ht4:#0b0b0b; --ht5:#0b0b0b; --ht6:#0b0b0b; --ht7:#0b0b0b;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --page:#0d0d0d; --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c2b7; --muted:#898781;
+  --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+  --s1:#3987e5; --s1-soft:#184f95; --up:#0ca30c; --down:#e66767;
+  --h1:#0d366b; --h2:#184f95; --h3:#256abf; --h4:#3987e5; --h5:#6da7ec; --h6:#9ec5f4; --h7:#cde2fb;
+  --ht1:#ffffff; --ht2:#ffffff; --ht3:#ffffff; --ht4:#0b0b0b; --ht5:#0b0b0b; --ht6:#0b0b0b; --ht7:#0b0b0b;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--page);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.45;
+  padding-block:24px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1{font-size:22px;font-weight:650;margin:0;letter-spacing:-.01em;text-wrap:balance}
+h2{font-size:13px;font-weight:600;margin:0}
+.sub{color:var(--ink2);margin:2px 0 0}
+.label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink2)}
+header{display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end}
+.filters{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:4px}
+select,button{font:inherit;color:var(--ink)}
+select{background:var(--surface);border:1px solid var(--axis);border-radius:6px;padding:7px 28px 7px 10px;min-height:36px}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--s1);outline-offset:2px}
+.pill{display:inline-flex;align-items:center;gap:6px;background:var(--s1-soft);border:0;border-radius:999px;padding:7px 12px;min-height:36px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 24px}
+.kpi{border-top:2px solid var(--ink);padding-top:10px;min-width:0}
+.kv{font-size:30px;font-weight:600;letter-spacing:-.02em;line-height:1.15;margin-top:2px}
+.kd{font-size:13px;margin-top:2px;color:var(--ink2)}
+.kd.up b{color:var(--up)} .kd.down b{color:var(--down)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;min-width:0}
+.cardhead{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:space-between;align-items:center;margin-bottom:12px}
+.seg{display:inline-flex;border:1px solid var(--axis);border-radius:6px;overflow:hidden}
+.seg button{background:transparent;border:0;padding:7px 12px;min-height:34px;color:var(--ink2)}
+.seg button+button{border-left:1px solid var(--axis)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.legend{display:flex;gap:16px;color:var(--ink2);font-size:13px}
+.legend i{display:inline-block;width:14px;height:0;border-top:2px solid;vertical-align:middle;margin-right:6px}
+#lineBox{position:relative}
+#lineBox svg{display:block;width:100%;touch-action:pan-y}
+.tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--axis);border-radius:6px;padding:8px 10px;font-size:12px;min-width:140px;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.tip b{display:block;margin-bottom:4px;font-size:13px}
+.tip div{display:flex;justify-content:space-between;gap:12px}
+.two{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:20px}
+@media (max-width:820px){.two{grid-template-columns:minmax(0,1fr)}}
+.chan{display:flex;flex-direction:column;gap:6px}
+.crow{display:grid;grid-template-columns:96px 1fr;gap:4px 10px;align-items:center;background:transparent;border:0;text-align:left;padding:6px 4px;border-radius:6px;width:100%}
+.crow:hover{background:var(--page)}
+.crow .track{height:14px;background:var(--grid);border-radius:0 4px 4px 0;position:relative}
+.crow .fill{position:absolute;inset:0 auto 0 0;background:var(--s1);border-radius:0 4px 4px 0}
+.crow .val{grid-column:2;font-size:12px;color:var(--ink2)}
+.crow.dim .fill{opacity:.3}
+.crow.on{background:var(--s1-soft)}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{text-align:right;padding:8px 10px;border-bottom:1px solid var(--grid);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink2);font-weight:600}
+tr.sel td{background:var(--s1-soft)}
+.heat{display:grid;grid-template-columns:72px repeat(12,minmax(44px,1fr));gap:2px;min-width:640px;font-variant-numeric:tabular-nums}
+.heat div{padding:8px 0;text-align:center;font-size:12px;border-radius:3px}
+.heat .hh{color:var(--ink2);font-size:11px;padding:2px 0}
+.heat .rl{text-align:left;color:var(--ink2);padding-left:0}
+.lv1{background:var(--h1);color:var(--ht1)}.lv2{background:var(--h2);color:var(--ht2)}.lv3{background:var(--h3);color:var(--ht3)}
+.lv4{background:var(--h4);color:var(--ht4)}.lv5{background:var(--h5);color:var(--ht5)}.lv6{background:var(--h6);color:var(--ht6)}.lv7{background:var(--h7);color:var(--ht7)}
+.scale{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink2)}
+.scale span.sw{width:18px;height:10px;border-radius:2px;display:inline-block}
+details summary{cursor:pointer;font-weight:600;font-size:13px}
+details[open] summary{margin-bottom:12px}
+footer{color:var(--ink2);font-size:12px}
+@media (prefers-reduced-motion:no-preference){.fill{transition:width .25s}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Hotel Nordlys · Sales Overview</h1>
+      <p class="sub">112 rooms, 5 sales channels. Sample data for a portfolio.</p>
+    </div>
+    <div class="filters">
+      <div class="field"><label class="label" for="fYear">Year</label>
+        <select id="fYear"><option value="2025" selected>2025</option><option value="2024">2024</option></select></div>
+      <div class="field"><label class="label" for="fType">Room type</label>
+        <select id="fType"><option value="all">All room types</option><option>Standard</option><option>Superior</option><option>Suite</option></select></div>
+      <button class="pill" id="clearCh" hidden aria-label="Clear channel filter"></button>
+    </div>
+  </header>
+
+  <section class="kpis" id="kpis" aria-label="Key metrics"></section>
+
+  <section class="card">
+    <div class="cardhead">
+      <div><h2 id="lineTitle">Monthly trend</h2><div class="sub" id="lineSum"></div></div>
+      <div class="seg" role="group" aria-label="Metric">
+        <button data-m="rev" aria-pressed="true">Revenue</button>
+        <button data-m="occ" aria-pressed="false">Occupancy</button>
+        <button data-m="adr" aria-pressed="false">ADR</button>
+        <button data-m="revpar" aria-pressed="false">RevPAR</button>
+      </div>
+    </div>
+    <div class="legend" id="lineLegend"></div>
+    <div id="lineBox"></div>
+  </section>
+
+  <div class="two">
+    <section class="card">
+      <div class="cardhead"><h2>Revenue by sales channel</h2><span class="sub">Select a channel to filter</span></div>
+      <div class="chan" id="chan"></div>
+    </section>
+    <section class="card">
+      <div class="cardhead"><h2>Room types</h2></div>
+      <div class="scroll"><table id="types"></table></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <div class="cardhead">
+      <div><h2>Occupancy by month and room type</h2><div class="sub">All sales channels</div></div>
+      <div class="scale"><span>40%</span><span class="sw" style="background:var(--h1)"></span><span class="sw" style="background:var(--h2)"></span><span class="sw" style="background:var(--h3)"></span><span class="sw" style="background:var(--h4)"></span><span class="sw" style="background:var(--h5)"></span><span class="sw" style="background:var(--h6)"></span><span class="sw" style="background:var(--h7)"></span><span>100%</span></div>
+    </div>
+    <div class="scroll"><div class="heat" id="heat"></div></div>
+  </section>
+
+  <section class="card">
+    <details>
+      <summary>Monthly table</summary>
+      <div class="scroll"><table id="months"></table></div>
+    </details>
+  </section>
+
+  <footer>All data is fictional and randomly generated with a fixed seed. Occupancy = room nights sold / room nights available. ADR = revenue / room nights sold. RevPAR = revenue / room nights available. With a channel filter, occupancy shows that channel's share of total room capacity.</footer>
+</div>
+
+<script>
+(function(){
+  var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var ALL=[0,1,2,3,4,5,6,7,8,9,10,11];
+  var DAYS=function(y){return [31,y%4?28:29,31,30,31,30,31,31,30,31,30,31];};
+  var ROOMS={Standard:60,Superior:40,Suite:12};
+  var TYPES=Object.keys(ROOMS);
+  var SEAS_OCC=[.52,.58,.64,.70,.78,.88,.93,.91,.80,.72,.62,.74];
+  var SEAS_ADR=[.86,.88,.92,.98,1.05,1.18,1.25,1.22,1.04,.97,.90,1.08];
+  var TYPE_OCC={Standard:1,Superior:.96,Suite:.82};
+  var TYPE_ADR={Standard:89,Superior:119,Suite:228};
+  var CH={'Direct':{s:.30,a:1.0},'Booking.com':{s:.28,a:1.06},'Expedia':{s:.12,a:1.03},'Corporate':{s:.18,a:.90},'Travel agents':{s:.12,a:.84}};
+  var CHS=Object.keys(CH);
+  var YEAR={2024:{o:.94,a:1.0},2025:{o:1.0,a:1.06}};
+
+  function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  var rand=rng(20251);
+  var REC=[];
+  [2024,2025].forEach(function(y){
+    ALL.forEach(function(m){
+      TYPES.forEach(function(t){
+        var occ=Math.min(.97,SEAS_OCC[m]*TYPE_OCC[t]*YEAR[y].o*(1+(rand()-.5)*.06));
+        var total=ROOMS[t]*DAYS(y)[m]*occ;
+        var raw=CHS.map(function(c){return CH[c].s*(1+(rand()-.5)*.12);});
+        var sum=raw.reduce(function(a,b){return a+b;},0);
+        CHS.forEach(function(c,i){
+          var n=total*raw[i]/sum;
+          var adr=TYPE_ADR[t]*SEAS_ADR[m]*CH[c].a*YEAR[y].a*(1+(rand()-.5)*.04);
+          REC.push({y:y,m:m,t:t,c:c,n:n,rev:n*adr});
+        });
+      });
+    });
+  });
+
+  var state={year:2025,type:'all',channel:null,metric:'rev'};
+  var $=function(s){return document.querySelector(s);};
+  var nf=function(n,d){return n.toLocaleString('en-GB',{minimumFractionDigits:d||0,maximumFractionDigits:d||0});};
+  var eur=function(n){return '€'+nf(n);};
+  var mln=function(n){return '€'+nf(n/1e6,2)+'M';};
+  var pct=function(n,d){return nf(n*100,d==null?1:d)+'%';};
+
+  function curTypes(){return state.type==='all'?TYPES:[state.type];}
+  function agg(y,ms,types,ch){
+    var n=0,rev=0,avail=0;
+    ms.forEach(function(m){types.forEach(function(t){avail+=ROOMS[t]*DAYS(y)[m];});});
+    REC.forEach(function(r){
+      if(r.y===y&&ms.indexOf(r.m)>-1&&types.indexOf(r.t)>-1&&(!ch||r.c===ch)){n+=r.n;rev+=r.rev;}
+    });
+    return {n:n,rev:rev,avail:avail,occ:avail?n/avail:0,adr:n?rev/n:0,revpar:avail?rev/avail:0};
+  }
+  function val(a,k){return a[k];}
+  function fmtMetric(v,k,compact){
+    if(k==='occ')return compact?Math.round(v*100)+'%':pct(v);
+    if(k==='rev')return compact?'€'+nf(v/1000)+'k':eur(v);
+    return eur(v);
+  }
+  var NAMES={rev:'Revenue',occ:'Occupancy',adr:'ADR',revpar:'RevPAR'};
+
+  function delta(cur,prev,k){
+    if(!prev||!prev.avail)return '<span>No comparison year</span>';
+    var up,txt;
+    if(k==='occ'){var d=(cur.occ-prev.occ)*100;up=d>=0;txt=(up?'+':'')+nf(d,1)+' pp';}
+    else{var p=(cur[k]/prev[k]-1)*100;up=p>=0;txt=(up?'+':'')+nf(p,1)+'%';}
+    return '<span class="'+(up?'up':'down')+'"><b>'+(up?'▲ ':'▼ ')+txt+'</b></span> vs '+(state.year-1);
+  }
+
+  function renderKpis(){
+    var types=curTypes();
+    var c=agg(state.year,ALL,types,state.channel);
+    var p=state.year>2024?agg(state.year-1,ALL,types,state.channel):null;
+    var items=[['rev','Revenue',mln(c.rev)],['occ','Occupancy',pct(c.occ)],['adr','ADR (average daily rate)',eur(c.adr)],['revpar','RevPAR',eur(c.revpar)]];
+    $('#kpis').innerHTML=items.map(function(it){
+      var dd=p?delta(c,p,it[0]):'<span>No comparison year</span>';
+      return '<div class="kpi"><div class="label">'+it[1]+'</div><div class="kv">'+it[2]+'</div><div class="kd'+(p?(c[it[0]]>=p[it[0]]?' up':' down'):'')+'">'+dd+'</div></div>';
+    }).join('');
+  }
+
+  function niceMax(max){
+    var raw=max/4,mag=Math.pow(10,Math.floor(Math.log10(raw))),step;
+    [1,2,2.5,5,10].some(function(s){step=s*mag;return step>=raw;});
+    return {max:Math.ceil(max/step)*step,step:step};
+  }
+
+  function series(y){
+    var types=curTypes();
+    return ALL.map(function(m){return val(agg(y,[m],types,state.channel),state.metric);});
+  }
+
+  function drawLine(){
+    var box=$('#lineBox'),k=state.metric;
+    var W=Math.max(280,box.clientWidth),H=W<500?220:270;
+    var L=W<500?44:52,R=14,T=12,B=28;
+    var cur=series(state.year),prev=state.year>2024?series(state.year-1):null;
+    var ymax,step;
+    if(k==='occ'){ymax=1;step=.25;}
+    else{var mx=Math.max.apply(null,cur.concat(prev||[]));var nm=niceMax(mx*1.05);ymax=nm.max;step=nm.step;}
+    var xs=function(i){return L+i*(W-L-R)/11;};
+    var ys=function(v){return T+(1-v/ymax)*(H-T-B);};
+    var g='',i;
+    for(var v=0;v<=ymax+1e-9;v+=step){
+      g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+ys(v)+'" y2="'+ys(v)+'" stroke="'+(v===0?'var(--axis)':'var(--grid)')+'" stroke-width="1"/>';
+      g+='<text x="'+(L-8)+'" y="'+(ys(v)+4)+'" text-anchor="end" font-size="11" fill="var(--ink2)">'+fmtMetric(v,k,true)+'</text>';
+    }
+    var every=W<460?2:1;
+    ALL.forEach(function(m){ if(m%every===0) g+='<text x="'+xs(m)+'" y="'+(H-8)+'" text-anchor="middle" font-size="11" fill="var(--ink2)">'+MONTHS[m]+'</text>'; });
+    var path=function(a){return a.map(function(v,i){return (i?'L':'M')+xs(i).toFixed(1)+' '+ys(v).toFixed(1);}).join(' ');};
+    if(prev)g+='<path d="'+path(prev)+'" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+    g+='<path d="'+path(cur)+'" fill="none" stroke="var(--s1)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+    g+='<circle cx="'+xs(11)+'" cy="'+ys(cur[11])+'" r="4" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"/>';
+    g+='<g id="hov" visibility="hidden"><line id="hv" y1="'+T+'" y2="'+(H-B)+'" stroke="var(--axis)" stroke-width="1"/><circle id="hc" r="4" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"/>'+(prev?'<circle id="hp" r="4" fill="var(--muted)" stroke="var(--surface)" stroke-width="2"/>':'')+'</g>';
+    g+='<rect id="hit" x="'+L+'" y="0" width="'+(W-L-R)+'" height="'+H+'" fill="transparent"/>';
+    box.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" role="img" aria-label="'+NAMES[k]+' by month, '+state.year+'">'+g+'</svg><div class="tip" id="tip" hidden></div>';
+    var svg=box.querySelector('svg'),hit=$('#hit'),tip=$('#tip'),hov=$('#hov');
+    function move(e){
+      var r=svg.getBoundingClientRect();
+      var x=(e.clientX-r.left)*(W/r.width);
+      var idx=Math.max(0,Math.min(11,Math.round((x-L)/((W-L-R)/11))));
+      hov.setAttribute('visibility','visible');
+      $('#hv').setAttribute('x1',xs(idx));$('#hv').setAttribute('x2',xs(idx));
+      $('#hc').setAttribute('cx',xs(idx));$('#hc').setAttribute('cy',ys(cur[idx]));
+      if(prev){$('#hp').setAttribute('cx',xs(idx));$('#hp').setAttribute('cy',ys(prev[idx]));}
+      var h='<b>'+MONTHS[idx]+'</b><div><span>'+state.year+'</span><span>'+fmtMetric(cur[idx],k)+'</span></div>';
+      if(prev){
+        var d=k==='occ'?((cur[idx]-prev[idx])*100):((cur[idx]/prev[idx]-1)*100);
+        h+='<div><span>'+(state.year-1)+'</span><span>'+fmtMetric(prev[idx],k)+'</span></div><div><span>Change</span><span>'+(d>=0?'+':'')+nf(d,1)+(k==='occ'?' pp':'%')+'</span></div>';
+      }
+      tip.innerHTML=h;tip.hidden=false;
+      var tw=tip.offsetWidth,left=xs(idx)*(r.width/W)+12;
+      if(left+tw>r.width)left=xs(idx)*(r.width/W)-tw-12;
+      tip.style.left=Math.max(0,left)+'px';tip.style.top='8px';
+    }
+    hit.addEventListener('pointermove',move);
+    hit.addEventListener('pointerdown',move);
+    hit.addEventListener('pointerleave',function(){hov.setAttribute('visibility','hidden');tip.hidden=true;});
+  }
+
+  function renderLineMeta(){
+    var k=state.metric,cur=series(state.year);
+    var best=0;cur.forEach(function(v,i){if(v>cur[best])best=i;});
+    $('#lineTitle').textContent=NAMES[k]+' by month';
+    $('#lineSum').textContent='Best month: '+MONTHS[best]+' ('+fmtMetric(cur[best],k)+')';
+    $('#lineLegend').innerHTML='<span><i style="border-color:var(--s1)"></i>'+state.year+'</span>'+(state.year>2024?'<span><i style="border-color:var(--muted)"></i>'+(state.year-1)+'</span>':'');
+  }
+
+  function renderChan(){
+    var types=curTypes();
+    var rows=CHS.map(function(c){var a=agg(state.year,ALL,types,c);return {c:c,rev:a.rev};});
+    var tot=rows.reduce(function(s,r){return s+r.rev;},0),mx=Math.max.apply(null,rows.map(function(r){return r.rev;}));
+    rows.sort(function(a,b){return b.rev-a.rev;});
+    $('#chan').innerHTML=rows.map(function(r){
+      var cls='crow'+(state.channel===r.c?' on':'')+(state.channel&&state.channel!==r.c?' dim':'');
+      return '<button class="'+cls+'" data-c="'+r.c+'" aria-pressed="'+(state.channel===r.c)+'"><span>'+r.c+'</span><span class="track"><span class="fill" style="width:'+(r.rev/mx*100).toFixed(1)+'%"></span></span><span class="val">'+'€'+nf(r.rev/1000)+'k · '+pct(r.rev/tot,0)+'</span></button>';
+    }).join('');
+  }
+
+  function renderTypes(){
+    var h='<tr><th>Room type</th><th>Rooms</th><th>Occupancy</th><th>ADR</th><th>RevPAR</th><th>Revenue</th></tr>';
+    TYPES.forEach(function(t){
+      var a=agg(state.year,ALL,[t],state.channel);
+      h+='<tr'+(state.type===t?' class="sel"':'')+'><td>'+t+'</td><td>'+ROOMS[t]+'</td><td>'+pct(a.occ)+'</td><td>'+eur(a.adr)+'</td><td>'+eur(a.revpar)+'</td><td>'+'€'+nf(a.rev/1000)+'k</td></tr>';
+    });
+    $('#types').innerHTML=h;
+  }
+
+  function renderHeat(){
+    var h='<div class="hh"></div>'+MONTHS.map(function(m){return '<div class="hh">'+m+'</div>';}).join('');
+    TYPES.forEach(function(t){
+      h+='<div class="rl hh" style="padding-top:8px">'+t+'</div>';
+      ALL.forEach(function(m){
+        var o=agg(state.year,[m],[t],null).occ;
+        var lv=Math.max(1,Math.min(7,Math.floor((o-.4)/.6*7)+1));
+        h+='<div class="lv'+lv+'" title="'+t+', '+MONTHS[m]+': '+pct(o)+'">'+Math.round(o*100)+'%</div>';
+      });
+    });
+    $('#heat').innerHTML=h;
+  }
+
+  function renderMonths(){
+    var types=curTypes();
+    var h='<tr><th>Month</th><th>Revenue</th><th>Occupancy</th><th>ADR</th><th>RevPAR</th></tr>';
+    ALL.forEach(function(m){
+      var a=agg(state.year,[m],types,state.channel);
+      h+='<tr><td>'+MONTHS[m]+'</td><td>'+eur(a.rev)+'</td><td>'+pct(a.occ)+'</td><td>'+eur(a.adr)+'</td><td>'+eur(a.revpar)+'</td></tr>';
+    });
+    $('#months').innerHTML=h;
+  }
+
+  function renderAll(){
+    var cc=$('#clearCh');
+    if(state.channel){cc.hidden=false;cc.textContent='Channel: '+state.channel+' ✕';}else cc.hidden=true;
+    renderKpis();renderLineMeta();drawLine();renderChan();renderTypes();renderHeat();renderMonths();
+  }
+
+  $('#fYear').addEventListener('change',function(e){state.year=+e.target.value;renderAll();});
+  $('#fType').addEventListener('change',function(e){state.type=e.target.value;renderAll();});
+  $('#clearCh').addEventListener('click',function(){state.channel=null;renderAll();});
+  $('#chan').addEventListener('click',function(e){
+    var b=e.target.closest('.crow');if(!b)return;
+    state.channel=state.channel===b.dataset.c?null:b.dataset.c;renderAll();
+  });
+  document.querySelectorAll('.seg button').forEach(function(b){
+    b.addEventListener('click',function(){
+      state.metric=b.dataset.m;
+      document.querySelectorAll('.seg button').forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false');});
+      renderLineMeta();drawLine();
+    });
+  });
+  var lastW=0;
+  if(window.ResizeObserver){new ResizeObserver(function(){var w=$('#lineBox').clientWidth;if(w!==lastW){lastW=w;drawLine();}}).observe($('#lineBox'));}
+  renderAll();
+})();
+</script>
+
+</body>
+</html>
